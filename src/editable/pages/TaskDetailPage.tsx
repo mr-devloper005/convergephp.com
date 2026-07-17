@@ -117,7 +117,7 @@ export function TaskDetailView({ task, post, related, comments = [] }: { task: T
   return (
     <EditableSiteShell>
       <main style={taskThemeStyle(task)} className="min-h-screen bg-[var(--tk-bg)] text-[var(--tk-text)]">
-        {task === 'listing' ? <ListingDetail post={post} related={related} /> : null}
+        {task === 'listing' ? <ListingArticleDetail post={post} related={related} /> : null}
         {task === 'classified' ? <ClassifiedDetail post={post} related={related} /> : null}
         {task === 'image' ? <ImageDetail post={post} related={related} /> : null}
         {task === 'sbm' ? <BookmarkDetail post={post} related={related} /> : null}
@@ -131,34 +131,29 @@ export function TaskDetailView({ task, post, related, comments = [] }: { task: T
 
 // Yelp-style red star rating row. Uses real rating/review fields when present,
 // otherwise a stable derived value (wire to real data when available).
-const hashStr = (value: string) => {
-  let h = 0
-  for (let i = 0; i < value.length; i += 1) h = (h * 31 + value.charCodeAt(i)) >>> 0
-  return h
-}
-const ratingOf = (post: SitePost) => {
+const ratingOf = (post: SitePost): number | null => {
   const real = Number(getContent(post).rating)
   if (real >= 1 && real <= 5) return Math.round(real * 10) / 10
-  return Math.round((3.7 + (hashStr(post.slug || post.id || post.title || 'x') % 13) / 10) * 10) / 10
+  return null
 }
 const reviewsOf = (post: SitePost) => {
   const real = Number(getContent(post).reviewCount ?? getContent(post).reviews)
   if (real > 0) return Math.floor(real)
-  return 6 + (hashStr((post.slug || post.title || 'x') + 'r') % 480)
+  return 0
 }
 
 function DetailMeta({ post, category, center = false }: { post: SitePost; category?: string; center?: boolean }) {
   const rating = ratingOf(post)
-  const filled = Math.round(rating)
+  const filled = rating === null ? 0 : Math.round(rating)
   return (
     <div className={`mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 ${center ? 'justify-center' : ''}`}>
-      <span className="inline-flex items-center gap-[3px]">
+      {rating !== null ? <span className="inline-flex items-center gap-[3px]">
         {[0, 1, 2, 3, 4].map((i) => (
           <Star key={i} className={`h-[18px] w-[18px] ${i < filled ? 'fill-[var(--tk-accent)] text-[var(--tk-accent)]' : 'fill-[var(--tk-line)] text-[var(--tk-line)]'}`} />
         ))}
-      </span>
-      <span className="text-sm font-semibold text-[var(--tk-text)]">{rating.toFixed(1)}</span>
-      <span className="text-sm text-[var(--tk-muted)]">{reviewsOf(post)} reviews</span>
+      </span> : null}
+      {rating !== null ? <span className="text-sm font-semibold text-[var(--tk-text)]">{rating.toFixed(1)}</span> : null}
+      {rating !== null && reviewsOf(post) > 0 ? <span className="text-sm text-[var(--tk-muted)]">{reviewsOf(post)} reviews</span> : null}
       {category ? (
         <>
           <span className="h-1 w-1 rounded-full bg-[var(--tk-muted)] opacity-50" />
@@ -211,6 +206,30 @@ function ArticleDetail({ post, related, comments }: { post: SitePost; related: S
 }
 
 // ----- Listing: a precise directory record -----
+function ListingArticleDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
+  const images = getImages(post)
+  const address = getField(post, ['address', 'location', 'city'])
+  const phone = getField(post, ['phone', 'telephone', 'mobile'])
+  const email = getField(post, ['email'])
+  const website = getField(post, ['website', 'url'])
+  return (
+    <>
+      <article className="mx-auto max-w-4xl px-6 py-14 sm:py-20">
+        <BackLink task="listing" />
+        <p className="mt-10 text-xs font-medium uppercase tracking-[0.28em] text-[var(--tk-accent)]">{categoryOf(post, 'Business listing')}</p>
+        <h1 className="editable-display mt-5 text-balance text-4xl font-semibold leading-[1.06] tracking-[-0.03em] sm:text-5xl lg:text-[3.4rem]">{post.title}</h1>
+        <div className="mt-6 text-sm text-[var(--tk-muted)]">{SITE_CONFIG.name}</div>
+        {images[0] ? <img src={images[0]} alt="" className="mt-10 aspect-[16/9] w-full rounded-[var(--tk-radius)] border border-[var(--tk-line)] object-cover" /> : null}
+        {leadText(post) ? <p className="mt-8 text-lg leading-8 text-[var(--tk-muted)]">{leadText(post)}</p> : null}
+        <InfoGrid items={[["Location", address, MapPin], ["Phone", phone, Phone], ["Email", email, Mail], ["Website", website, Globe2]]} />
+        <BodyContent post={post} />
+        <ImageStrip images={images.slice(1)} label="Business gallery" />
+      </article>
+      <RelatedStrip task="listing" related={related} />
+    </>
+  )
+}
+
 function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
   const images = getImages(post)
   const logo = images[0]
@@ -249,6 +268,7 @@ function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] 
     </section>
   )
 }
+void ListingDetail
 
 // ----- Classified: price-forward notice with a sticky action rail -----
 function ClassifiedDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
@@ -261,29 +281,27 @@ function ClassifiedDetail({ post, related }: { post: SitePost; related: SitePost
   const website = getField(post, ['website', 'url'])
   return (
     <>
-      <section className="mx-auto grid max-w-[var(--editable-container)] gap-10 px-6 py-14 sm:py-20 lg:grid-cols-[360px_minmax(0,1fr)] lg:px-8">
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <BackLink task="classified" />
-          <div className="mt-7 rounded-[var(--tk-radius)] border border-[var(--tk-line)] bg-[var(--tk-surface)] p-7 shadow-[0_22px_60px_rgba(15,23,42,0.08)]">
+      <section className="mx-auto max-w-[var(--editable-container)] px-6 py-10 sm:py-14 lg:px-8">
+        <div className="mb-8"><BackLink task="classified" /></div>
+        <div className="grid overflow-hidden rounded-[22px] border border-[var(--tk-line)] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)] lg:grid-cols-[minmax(0,1.3fr)_400px]">
+        <article className="min-w-0 bg-[#f2f3f5] p-5 sm:p-8">
+          <ImageStrip images={images} label="Offer images" large />
+          <div className="rounded-[18px] bg-white p-6 sm:p-8"><BodyContent post={post} /></div>
+        </article>
+        <aside className="p-7 lg:sticky lg:top-24 lg:self-start lg:p-9">
+          <div>
             <Kicker task="classified">Classified</Kicker>
-            <h1 className="editable-display mt-4 text-2xl font-semibold leading-tight tracking-[-0.02em]">{post.title}</h1>
+            <h1 className="editable-display mt-4 text-4xl font-bold leading-[0.98] tracking-[-0.02em]">{post.title}</h1>
             <DetailMeta post={post} category={getField(post, ['category'])} />
-            <p className="editable-display mt-6 text-4xl font-semibold tracking-[-0.03em] text-[var(--tk-accent)]">{price || 'Open offer'}</p>
+            <p className="editable-display mt-6 text-5xl font-bold tracking-[-0.03em] text-[var(--tk-accent)]">{price || 'Open offer'}</p>
             <div className="mt-6 space-y-2.5">
               {condition ? <BadgeLine label="Condition" value={condition} /> : null}
               {location ? <BadgeLine label="Location" value={location} /> : null}
             </div>
-            <div className="mt-7 flex flex-wrap gap-3">
-              {phone ? <a href={`tel:${phone}`} className="inline-flex items-center gap-2 rounded-full bg-[var(--tk-accent)] px-5 py-2.5 text-sm font-semibold text-[var(--tk-on-accent)] transition hover:opacity-90"><Phone className="h-4 w-4" /> Call now</a> : null}
-              {email ? <a href={`mailto:${email}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--tk-line)] px-5 py-2.5 text-sm font-semibold transition hover:border-[var(--tk-accent)]"><Mail className="h-4 w-4" /> Email</a> : null}
-            </div>
+            <ContactAction website={website} phone={phone} email={email} />
           </div>
         </aside>
-        <article className="min-w-0">
-          <ImageStrip images={images} label="Offer images" large />
-          <BodyContent post={post} />
-          <ContactAction website={website} phone={phone} email={email} />
-        </article>
+        </div>
       </section>
       <RelatedStrip task="classified" related={related} />
     </>
@@ -293,7 +311,7 @@ function ClassifiedDetail({ post, related }: { post: SitePost; related: SitePost
 // ----- Image: a dark, gallery-led canvas -----
 function ImageDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
   const images = getImages(post)
-  const gallery = images.length ? images : ['/placeholder.svg?height=900&width=1200']
+  const gallery = images.length ? images : []
   return (
     <>
       <section className="mx-auto max-w-[var(--editable-container)] px-6 py-14 sm:py-20 lg:px-8">
@@ -391,25 +409,27 @@ function ProfileDetail({ post, related }: { post: SitePost; related: SitePost[] 
   const email = getField(post, ['email'])
   return (
     <>
-      <section className="mx-auto max-w-[var(--editable-container)] px-6 py-14 sm:py-20 lg:px-8">
+      <section className="mx-auto max-w-[var(--editable-container)] px-6 py-10 sm:py-14 lg:px-8">
         <BackLink task="profile" />
-        <div className="mt-8 grid gap-10 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-[var(--tk-radius)] border border-[var(--tk-line)] bg-[var(--tk-surface)] p-8 text-center shadow-[0_22px_60px_rgba(15,23,42,0.08)]">
-              <div className="mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-[var(--tk-line)] bg-[var(--tk-raised)]">
+        <div className="mt-8 overflow-hidden rounded-[22px] border border-[var(--tk-line)] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
+          <div className="grid bg-[#24262b] text-white lg:grid-cols-[360px_minmax(0,1fr)]">
+          <aside className="p-8 lg:p-10">
+            <div className="text-center">
+              <div className="mx-auto flex h-40 w-40 items-center justify-center overflow-hidden rounded-[20px] border border-white/15 bg-white/10">
                 {images[0] ? <img src={images[0]} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-14 w-14 text-[var(--tk-muted)]" />}
               </div>
-              <h1 className="editable-display mt-6 text-2xl font-semibold tracking-[-0.02em]">{post.title}</h1>
-              {role ? <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-[var(--tk-accent)]">{role}</p> : null}
+              <h1 className="editable-display mt-6 text-4xl font-bold tracking-[-0.02em]">{post.title}</h1>
+              {role ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-[#8ed7e2]">{role}</p> : null}
               <DetailMeta post={post} center />
               <ContactAction website={website} email={email} bare />
             </div>
           </aside>
-          <article className="min-w-0">
-            <Kicker task="profile">Profile</Kicker>
+          <article className="min-w-0 bg-white p-8 text-[var(--tk-text)] lg:p-12">
+            <Kicker task="profile">Profile details</Kicker>
             <BodyContent post={post} />
-            <ImageStrip images={images.slice(1)} label="Gallery" />
           </article>
+          </div>
+          <div className="p-6 sm:p-8"><ImageStrip images={images.slice(1)} label="Profile gallery" /></div>
         </div>
       </section>
       <RelatedStrip task="profile" related={related} />
@@ -477,12 +497,7 @@ function ContactAction({ website, phone, email, bare = false }: { website?: stri
     </div>
   )
   if (bare) return <div className="mt-6">{buttons}</div>
-  return (
-    <div className="rounded-[var(--tk-radius)] border border-[var(--tk-line)] bg-[var(--tk-surface)] p-6">
-      <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--tk-muted)]">Quick actions</p>
-      <div className="mt-4">{buttons}</div>
-    </div>
-  )
+  return <div className="mt-6">{buttons}</div>
 }
 
 function BadgeLine({ label, value }: { label: string; value: string }) {
@@ -567,4 +582,3 @@ function RelatedCard({ task, post, grid = false }: { task: TaskKey; post: SitePo
     </Link>
   )
 }
-

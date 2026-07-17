@@ -1,9 +1,9 @@
 'use client'
 
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CheckCircle2, FileText, ImageIcon, Lock, PlusCircle, Send, Sparkles } from 'lucide-react'
-import { SITE_CONFIG, type TaskKey } from '@/lib/site-config'
+import { ArrowRight, CheckCircle2, Lock, Send } from 'lucide-react'
+import type { TaskKey } from '@/lib/site-config'
 import { EditableSiteShell } from '@/editable/shell/EditableSiteShell'
 import { useEditableLocalAuthSession } from '@/editable/components/EditableLocalAuthForms'
 import { pagesContent } from '@/editable/content/pages.content'
@@ -22,16 +22,6 @@ type DraftPost = {
 
 const STORE_KEY = 'slot4:created-posts'
 
-const taskIcon: Record<string, typeof FileText> = {
-  article: FileText,
-  listing: Sparkles,
-  classified: PlusCircle,
-  image: ImageIcon,
-  profile: Sparkles,
-  pdf: FileText,
-  sbm: ArrowRight,
-}
-
 const fieldClass = 'rounded-2xl border border-[var(--editable-border)] bg-white px-4 py-3 text-sm font-bold text-[var(--editable-page-text,#2f1d16)] outline-none transition placeholder:text-current/35 focus:border-current'
 
 const saveDraft = (draft: DraftPost) => {
@@ -46,8 +36,7 @@ const saveDraft = (draft: DraftPost) => {
 
 export default function CreatePage() {
   const { session } = useEditableLocalAuthSession()
-  const enabledTasks = useMemo(() => SITE_CONFIG.tasks.filter((task) => task.enabled), [])
-  const [task, setTask] = useState<TaskKey>((enabledTasks[0]?.key || 'article') as TaskKey)
+  const task: TaskKey = 'listing'
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [summary, setSummary] = useState('')
@@ -55,8 +44,6 @@ export default function CreatePage() {
   const [image, setImage] = useState('')
   const [body, setBody] = useState('')
   const [created, setCreated] = useState<DraftPost | null>(null)
-
-  const activeTask = enabledTasks.find((item) => item.key === task) || enabledTasks[0]
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -113,39 +100,30 @@ export default function CreatePage() {
               <p className="text-xs font-black uppercase tracking-[0.28em] opacity-55">{pagesContent.create.hero.badge}</p>
               <h1 className="mt-5 text-5xl font-black leading-[0.92] tracking-[-0.08em] sm:text-7xl">{pagesContent.create.hero.title}</h1>
               <p className="mt-6 max-w-xl text-base font-semibold leading-8 opacity-70">{pagesContent.create.hero.description}</p>
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {enabledTasks.map((item) => {
-                  const Icon = taskIcon[item.key] || FileText
-                  const active = item.key === task
-                  return (
-                    <button key={item.key} type="button" onClick={() => setTask(item.key)} className={`rounded-2xl border p-4 text-left transition ${active ? 'border-current bg-[var(--editable-page-text,#2f1d16)] text-[var(--editable-page-bg,#fff7ee)]' : 'border-[var(--editable-border)] bg-white hover:-translate-y-0.5'}`}>
-                      <Icon className="h-5 w-5" />
-                      <span className="mt-3 block text-sm font-black">{item.label}</span>
-                      <span className="mt-1 block text-xs font-semibold opacity-65">{item.description}</span>
-                    </button>
-                  )
-                })}
+              <div className="mt-8 rounded-[1.5rem] bg-[#24262b] p-6 text-white">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8ed7e2]">Business listing</p>
+                <p className="mt-3 text-sm font-semibold leading-7 text-white/70">Add your services, location, images, website, and contact information so customers can find and compare your business.</p>
               </div>
             </aside>
 
             <form onSubmit={submit} className="rounded-[2.2rem] border border-[var(--editable-border)] bg-[var(--editable-page-bg,#fff7ee)] p-5 sm:p-7">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] opacity-50">Create {activeTask?.label || 'post'}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] opacity-50">Create business listing</p>
                   <h2 className="mt-1 text-3xl font-black tracking-[-0.06em]">{pagesContent.create.formTitle}</h2>
                 </div>
                 <span className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em]">{session.name}</span>
               </div>
 
               <div className="mt-6 grid gap-4">
-                <input className={fieldClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Post title" required />
+                <input className={fieldClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Business name" required />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <input className={fieldClass} value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Category" />
-                  <input className={fieldClass} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Website or source URL" />
+                  <input className={fieldClass} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Business website URL" />
                 </div>
                 <input className={fieldClass} value={image} onChange={(event) => setImage(event.target.value)} placeholder="Featured image URL" />
                 <textarea className={`${fieldClass} min-h-24`} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Short summary" required />
-                <textarea className={`${fieldClass} min-h-48`} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Main content, details, notes, or description" required />
+                <textarea className={`${fieldClass} min-h-48`} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Services, location, opening details, and contact information" required />
               </div>
 
               {created ? (
